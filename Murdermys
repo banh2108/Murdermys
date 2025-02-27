@@ -1,0 +1,192 @@
+-- 📌 Load Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ESP_ENABLED = false
+local AUTO_SHOOT_ENABLED = false
+local AUTO_KILL_ENABLED = false
+local AUTO_PICK_GUN_ENABLED = true
+local SPEED_ENABLED = false
+local SPEED_VALUE = 16
+
+local Colors = {
+    ["None"] = Color3.fromRGB(255, 255, 255),   -- ⚪ Không có vũ khí
+    ["Gun"] = Color3.fromRGB(0, 191, 255),      -- 🔵 Có súng
+    ["Knife"] = Color3.fromRGB(255, 0, 0)       -- 🔴 Có dao
+}
+
+-- 🏃‍♂️ **Hack Speed**
+local function SetSpeed()
+    while SPEED_ENABLED do
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = SPEED_VALUE
+        end
+        task.wait(0.1)
+    end
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = 16
+    end
+end
+
+-- 🎯 **Tạo ESP**
+local function CreateESP(player)
+    repeat task.wait() until player.Character and player.Character:FindFirstChild("Head")
+    
+    local head = player.Character.Head
+    if head:FindFirstChild("ESP") then head.ESP:Destroy() end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP"
+    billboard.Size = UDim2.new(6, 0, 2.5, 0)
+    billboard.StudsOffset = Vector3.new(0, 2, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = head
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextScaled = true
+    label.Font = Enum.Font.SourceSansBold
+    label.Text = player.Name
+    label.Parent = billboard
+    label.TextColor3 = Colors["None"]
+end
+
+-- 🔄 **Cập nhật ESP**
+local function UpdateESP()
+    while ESP_ENABLED do
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local hasGun, hasKnife = false, false
+
+                for _, tool in ipairs(player.Backpack:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        if tool.Name:lower():find("gun") then hasGun = true end
+                        if tool.Name:lower():find("knife") then hasKnife = true end
+                    end
+                end
+
+                for _, tool in ipairs(player.Character:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        if tool.Name:lower():find("gun") then hasGun = true end
+                        if tool.Name:lower():find("knife") then hasKnife = true end
+                    end
+                end
+
+                local color = hasKnife and Colors["Knife"] or hasGun and Colors["Gun"] or Colors["None"]
+                if player.Character:FindFirstChild("Head") then
+                    local label = player.Character.Head:FindFirstChild("ESP") and player.Character.Head.ESP:FindFirstChildOfClass("TextLabel")
+                    if label then label.TextColor3 = color end
+                end
+            end
+        end
+        task.wait(1)
+    end
+end
+
+-- 🎭 **Bật ESP**
+local function StartESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            CreateESP(player)
+        end
+    end
+    spawn(UpdateESP)
+end
+
+-- 🔫 **Auto Shoot (TP tới người có dao và bắn)**
+local function AutoShoot()
+    while AUTO_SHOOT_ENABLED do
+        -- Nếu có súng trong kho đồ nhưng chưa cầm
+        if LocalPlayer.Backpack:FindFirstChild("Gun") then
+            LocalPlayer.Character.Humanoid:EquipTool(LocalPlayer.Backpack.Gun)
+            task.wait(0.2)
+        end
+
+        -- Nếu đã có súng trong tay thì tìm mục tiêu
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Gun") then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+                    -- Kiểm tra xem người chơi này có dao không
+                    local hasKnife = false
+                    for _, tool in ipairs(player.Backpack:GetChildren()) do
+                        if tool:IsA("Tool") and tool.Name:lower():find("knife") then
+                            hasKnife = true
+                            break
+                        end
+                    end
+                    for _, tool in ipairs(player.Character:GetChildren()) do
+                        if tool:IsA("Tool") and tool.Name:lower():find("knife") then
+                            hasKnife = true
+                            break
+                        end
+                    end
+                    
+                    -- Nếu người đó có dao, TP tới và bắn
+                    if hasKnife then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+                        task.wait(0.1)
+                        LocalPlayer.Character.Gun:Activate()
+                    end
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+-- ⚔️ **Auto Kill (TP tới tất cả người chơi và chém)**
+local function AutoKill()
+    while AUTO_KILL_ENABLED do
+        -- Nếu có dao nhưng chưa cầm
+        if LocalPlayer.Backpack:FindFirstChild("Knife") then
+            LocalPlayer.Character.Humanoid:EquipTool(LocalPlayer.Backpack.Knife)
+        end
+        
+        -- Nếu đã cầm dao thì TP tới mục tiêu
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Knife") then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+                    task.wait(0.1)
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+-- 🚀 **Tạo UI với Rayfield**
+local Window = Rayfield:CreateWindow({ Name = "banh21 Hub" })
+local Tab = Window:CreateTab("Main", 4483362458)
+
+-- 🎭 **ESP Roles Detection**
+Tab:CreateToggle({ Name = "ESP Roles Detection", CurrentValue = false, Callback = function(state)
+    ESP_ENABLED = state
+    if ESP_ENABLED then StartESP() end
+end })
+
+-- 🔫 **Auto Shoot**
+Tab:CreateToggle({ Name = "Auto Shoot", CurrentValue = false, Callback = function(state)
+    AUTO_SHOOT_ENABLED = state
+    if AUTO_SHOOT_ENABLED then spawn(AutoShoot) end
+end })
+
+-- ⚔️ **Auto Kill**
+Tab:CreateToggle({ Name = "Auto Kill", CurrentValue = false, Callback = function(state)
+    AUTO_KILL_ENABLED = state
+    if AUTO_KILL_ENABLED then spawn(AutoKill) end
+end })
+
+-- 🚀 **Hack Speed**
+Tab:CreateToggle({ Name = "Hack Speed", CurrentValue = false, Callback = function(state)
+    SPEED_ENABLED = state
+    if SPEED_ENABLED then spawn(SetSpeed) end
+end })
+
+Tab:CreateInput({ Name = "Speed Value", PlaceholderText = "Enter speed", Callback = function(text)
+    local speedValue = tonumber(text)
+    if speedValue then SPEED_VALUE = speedValue end
+end })
+
+print("✅ banh21 Hub đã cập nhật Auto Shoot với TP!")

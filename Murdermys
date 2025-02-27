@@ -1,53 +1,97 @@
+-- 📌 Load Rayfield UI Library
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+
 local ESP_ENABLED = false
 local AUTO_SHOOT_ENABLED = false
 local AUTO_KILL_ENABLED = false
-local AUTO_PICK_GUN_ENABLED = true
+local AUTO_PICK_GUN_ENABLED = false
 local SPEED_ENABLED = false
 local SPEED_VALUE = 16
 
 local Colors = {
-    ["None"] = Color3.fromRGB(255, 255, 255),   -- Không có vũ khí
-    ["Gun"] = Color3.fromRGB(0, 191, 255),      -- Có súng
-    ["Knife"] = Color3.fromRGB(255, 0, 0)       -- Có dao
+    ["None"] = Color3.fromRGB(255, 255, 255),   -- ⚪ Không có vũ khí
+    ["Gun"] = Color3.fromRGB(0, 191, 255),      -- 🔵 Có súng
+    ["Knife"] = Color3.fromRGB(255, 0, 0)       -- 🔴 Có dao
 }
 
--- 🎯 **Auto Pick Gun**
-local function AutoPickGun()
-    while AUTO_PICK_GUN_ENABLED do
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local hasGun = player.Character:FindFirstChild("Gun") or player.Backpack:FindFirstChild("Gun")
-
-                if hasGun then
-                    repeat task.wait() until not player.Character or not player.Character:FindFirstChild("Humanoid") or player.Character.Humanoid.Health <= 0
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
-                    task.wait(0.2)
-
-                    if LocalPlayer.Backpack:FindFirstChild("Gun") or LocalPlayer.Character:FindFirstChild("Gun") then
-                        if AUTO_SHOOT_ENABLED then spawn(AutoShoot) end
-                    end
-                end
-            end
+-- 🏃‍♂️ **Hack Speed**
+local function SetSpeed()
+    while SPEED_ENABLED do
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = SPEED_VALUE
         end
-        task.wait(1)
+        task.wait(0.1)
+    end
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = 16
     end
 end
 
--- 🎯 **Auto Shoot**
+-- 🎯 **Tạo ESP chạy liên tục**
+local function UpdateESP()
+    while ESP_ENABLED do
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local head = player.Character:FindFirstChild("Head")
+                if head then
+                    local label = head:FindFirstChild("ESP") and head.ESP:FindFirstChildOfClass("TextLabel")
+                    if not label then
+                        local billboard = Instance.new("BillboardGui", head)
+                        billboard.Name = "ESP"
+                        billboard.Size = UDim2.new(6, 0, 2.5, 0)
+                        billboard.StudsOffset = Vector3.new(0, 2, 0)
+                        billboard.AlwaysOnTop = true
+
+                        label = Instance.new("TextLabel", billboard)
+                        label.Size = UDim2.new(1, 0, 1, 0)
+                        label.BackgroundTransparency = 1
+                        label.TextScaled = true
+                        label.Font = Enum.Font.SourceSansBold
+                        label.Text = player.Name
+                    end
+
+                    local hasGun, hasKnife = false, false
+                    for _, tool in ipairs(player.Backpack:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            if tool.Name:lower():find("gun") then hasGun = true end
+                            if tool.Name:lower():find("knife") then hasKnife = true end
+                        end
+                    end
+                    for _, tool in ipairs(player.Character:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            if tool.Name:lower():find("gun") then hasGun = true end
+                            if tool.Name:lower():find("knife") then hasKnife = true end
+                        end
+                    end
+
+                    label.TextColor3 = hasKnife and Colors["Knife"] or hasGun and Colors["Gun"] or Colors["None"]
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+-- 🔫 **Auto Shoot** (Chỉ hoạt động khi có súng)
 local function AutoShoot()
     while AUTO_SHOOT_ENABLED do
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local hasKnife = player.Character:FindFirstChild("Knife") or player.Backpack:FindFirstChild("Knife")
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Gun") then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+                    local hasKnife = false
+                    for _, tool in ipairs(player.Character:GetChildren()) do
+                        if tool:IsA("Tool") and tool.Name:lower():find("knife") then
+                            hasKnife = true
+                            break
+                        end
+                    end
 
-                if hasKnife then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
-                    task.wait(0.1)
-                    if LocalPlayer.Character:FindFirstChild("Gun") then
+                    if hasKnife then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+                        task.wait(0.1)
                         LocalPlayer.Character.Gun:Activate()
                     end
                 end
@@ -57,15 +101,52 @@ local function AutoShoot()
     end
 end
 
--- 🎯 **Auto Kill**
+-- ⚔️ **Auto Kill** (Chỉ hoạt động khi có dao)
 local function AutoKill()
     while AUTO_KILL_ENABLED do
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Knife") then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+                    task.wait(0.1)
+                    LocalPlayer.Character.Knife:Activate()
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+-- 🔫 **Auto Pick Gun mới**
+local function AutoPickGun()
+    while AUTO_PICK_GUN_ENABLED do
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
-                task.wait(0.1)
-                if LocalPlayer.Character:FindFirstChild("Knife") then
-                    LocalPlayer.Character.Knife:Activate()
+                local humanoid = player.Character:FindFirstChild("Humanoid")
+                if humanoid and humanoid.Health == 0 then
+                    local murderer = nil
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p ~= LocalPlayer and p.Character then
+                            for _, tool in ipairs(p.Character:GetChildren()) do
+                                if tool:IsA("Tool") and tool.Name:lower():find("knife") then
+                                    murderer = p
+                                    break
+                                end
+                            end
+                        end
+                    end
+
+                    if murderer and murderer.Character then
+                        repeat task.wait(0.1)
+                        until (murderer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude > 30
+                    end
+
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+                    task.wait(0.2)
+
+                    if LocalPlayer.Backpack:FindFirstChild("Gun") or LocalPlayer.Character:FindFirstChild("Gun") then
+                        if AUTO_SHOOT_ENABLED then spawn(AutoShoot) end
+                    end
                 end
             end
         end
@@ -77,31 +158,11 @@ end
 local Window = Rayfield:CreateWindow({ Name = "banh21 Hub" })
 local Tab = Window:CreateTab("Main", 4483362458)
 
--- 🎯 **ESP Roles Detection**
-Tab:CreateToggle({
-    Name = "ESP Roles Detection",
-    CurrentValue = false,
-    Callback = function(state)
-        ESP_ENABLED = state
-    end
-})
+Tab:CreateToggle({ Name = "ESP Roles Detection", CurrentValue = false, Callback = function(state) ESP_ENABLED = state if ESP_ENABLED then spawn(UpdateESP) end end })
+Tab:CreateToggle({ Name = "Auto Shoot", CurrentValue = false, Callback = function(state) AUTO_SHOOT_ENABLED = state if AUTO_SHOOT_ENABLED then spawn(AutoShoot) end end })
+Tab:CreateToggle({ Name = "Auto Kill", CurrentValue = false, Callback = function(state) AUTO_KILL_ENABLED = state if AUTO_KILL_ENABLED then spawn(AutoKill) end end })
+Tab:CreateToggle({ Name = "Hack Speed", CurrentValue = false, Callback = function(state) SPEED_ENABLED = state if SPEED_ENABLED then spawn(SetSpeed) end end })
+Tab:CreateInput({ Name = "Speed Value", PlaceholderText = "Enter speed value", Callback = function(text) SPEED_VALUE = tonumber(text) or SPEED_VALUE end })
+Tab:CreateToggle({ Name = "Auto Pick Gun", CurrentValue = false, Callback = function(state) AUTO_PICK_GUN_ENABLED = state if AUTO_PICK_GUN_ENABLED then spawn(AutoPickGun) end end })
 
--- 🔫 **Auto Shoot**
-Tab:CreateToggle({ Name = "Auto Shoot", CurrentValue = false, Callback = function(state)
-    AUTO_SHOOT_ENABLED = state
-    if AUTO_SHOOT_ENABLED then spawn(AutoShoot) end
-end })
-
--- ⚔️ **Auto Kill**
-Tab:CreateToggle({ Name = "Auto Kill", CurrentValue = false, Callback = function(state)
-    AUTO_KILL_ENABLED = state
-    if AUTO_KILL_ENABLED then spawn(AutoKill) end
-end })
-
--- 🚀 **Auto Pick Gun**
-Tab:CreateToggle({ Name = "Auto Pick Gun", CurrentValue = true, Callback = function(state)
-    AUTO_PICK_GUN_ENABLED = state
-    if AUTO_PICK_GUN_ENABLED then spawn(AutoPickGun) end
-end })
-
-print("✅ banh21 Hub đã được cập nhật với các tính năng mới!")
+print("✅ banh21 Hub đã cập nhật Auto Pick Gun mới và sửa lỗi ESP!")
